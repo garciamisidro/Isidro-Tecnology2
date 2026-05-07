@@ -83,3 +83,43 @@ if not st.session_state.datos_presupuesto.empty:
     if st.button("📧 Enviar Presupuesto a Contabilidad"):
         # Aquí se usaría la misma lógica de Secrets del ejercicio anterior
         st.info("Configura los Secrets para activar el envío por email.")
+# --- MODIFICACIÓN 1: ALERTAS DE DESVÍO Y CONTROL DE LÍMITES ---
+
+if not st.session_state.datos_presupuesto.empty:
+    st.divider()
+    st.subheader("⚠️ Control de Límites Presupuestarios")
+
+    # 1. Definimos los límites (puedes ajustar estos importes según la obra)
+    limites_presupuesto = {
+        "Materiales Eléctricos": 2000.0,
+        "Mecanismos y Cuadros": 1500.0,
+        "Pequeño Material": 500.0,
+        "Maquinaria": 1200.0,
+        "Mano de Obra Externa": 3000.0,
+        "Otros Gastos": 300.0
+    }
+
+    # 2. Agrupamos los gastos actuales por partida
+    gastos_por_partida = st.session_state.datos_presupuesto.groupby("Partida")["Gasto (€)"].sum()
+
+    # 3. Creamos columnas para mostrar las alertas de forma visual
+    cols = st.columns(2)
+    for i, (partida, limite) in enumerate(limites_presupuesto.items()):
+        gasto_actual = gastos_por_partida.get(partida, 0.0)
+        porcentaje = (gasto_actual / limite)
+        
+        # Seleccionamos la columna (izq o der)
+        with cols[i % 2]:
+            st.write(f"**{partida}**")
+            
+            # Lógica de alertas (IA de control)
+            if porcentaje >= 1.0:
+                st.error(f"¡PRESUPUESTO AGOTADO! ({gasto_actual:.2f}€ / {limite}€)")
+                progreso_color = "red"
+            elif porcentaje >= 0.8:
+                st.warning(f"Atención: 80% alcanzado ({gasto_actual:.2f}€ / {limite}€)")
+            else:
+                st.success(f"Presupuesto OK ({gasto_actual:.2f}€ / {limite}€)")
+            
+            # Barra de progreso visual
+            st.progress(min(porcentaje, 1.0))
