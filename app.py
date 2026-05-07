@@ -73,16 +73,47 @@ if not st.session_state.datos_presupuesto.empty:
     # Mostrar tabla
     st.dataframe(st.session_state.datos_presupuesto)
 
-    # --- DESCARGA Y ENVÍO ---
-    nombre_excel = "seguimiento_presupuesto.xlsx"
-    st.session_state.datos_presupuesto.to_excel(nombre_excel, index=False)
+  # --- 5. EXPORTACIÓN Y ENVÍO POR CORREO ---
+    st.divider()
+    st.dataframe(st.session_state.datos_obra)
     
-    with open(nombre_excel, "rb") as f:
-        st.download_button("📥 Descargar Reporte Excel", f, file_name=nombre_excel)
+    nombre_archivo = "reporte_obra.xlsx"
+    st.session_state.datos_obra.to_excel(nombre_archivo, index=False)
 
-    if st.button("📧 Enviar Presupuesto a Contabilidad"):
-        # Aquí se usaría la misma lógica de Secrets del ejercicio anterior
-        st.info("Configura los Secrets para activar el envío por email.")
+    col_btn1, col_btn2 = st.columns(2)
+    with col_btn1:
+        with open(nombre_archivo, "rb") as f:
+            st.download_button("📥 Descargar Excel", f, file_name=nombre_archivo)
+            
+    with col_btn2:
+        if st.button("📧 Enviar Reporte por Correo"):
+            try:
+                # Datos desde Secrets
+                u = st.secrets["email"]["user"]
+                p = st.secrets["email"]["pass"]
+                prof = st.secrets["email"]["profe"]
+
+                msg = MIMEMultipart()
+                msg['From'], msg['To'], msg['Subject'] = u, f"{prof}, {u}", "Reporte Seguimiento de Obra"
+                msg.attach(MIMEText("Se adjunta el archivo Excel con el seguimiento de obra.", 'plain'))
+
+                with open(nombre_archivo, "rb") as adj:
+                    part = MIMEBase('application', 'octet-stream')
+                    part.set_payload(adj.read())
+                    encoders.encode_base64(part)
+                    part.add_header('Content-Disposition', f"attachment; filename={nombre_archivo}")
+                    msg.attach(part)
+
+                server = smtplib.SMTP('smtp.gmail.com', 587)
+                server.starttls()
+                server.login(u, p)
+                server.send_message(msg)
+                server.quit()
+                st.success("✅ Correo enviado con éxito.")
+            except Exception as e:
+                st.error(f"Error: {e}. Revisa tus Secrets.")
+else:
+    st.info("👋 Registra una tarea para activar el análisis y las opciones de exportación.")
 # --- MODIFICACIÓN 1: ALERTAS DE DESVÍO Y CONTROL DE LÍMITES ---
 
 if not st.session_state.datos_presupuesto.empty:
